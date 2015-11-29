@@ -1,0 +1,71 @@
+#!/usr/local/bin/php
+<?php
+require_once '../lib/meekrodb.2.3.class.php';
+
+DB::$user = 'root';
+DB::$password = 'root';
+DB::$dbName = 'bixibeats';
+DB::$host = '127.0.0.1'; //defaults to localhost if omitted
+DB::$port = '33306'; // defaults to 3306 if omitted
+DB::$encoding = 'utf8'; // defaults to latin1 if omitted
+
+$fp = fopen('../data/routes.json','w');
+fwrite($fp,"{'routes':[");
+
+$routes = DB::query( "SELECT * FROM routes" );
+
+foreach ( $routes as $index => $route ) {
+	$route_output = array(
+		'id' => (int) $route['id'],
+		'startStationId' => (int) $route['start_station_id'],
+		'endStationId' => (int) $route['end_station_id'],
+		'distance' => (int) $route['distance'],
+		'expectedDuration' => (int) $route['duration'],
+		'calculatedDistance' => null,
+		'legs' => array()
+	);
+
+	$directions = json_decode( $route['geojson'] , true );
+	$waypoints = $directions['geometry']['coordinates'];
+	$calculated_distance = 0;
+
+	foreach ( $waypoints as $idx => $coordinates ) {
+		// Last waypoint, let's break out
+		if ( $idx == count($waypoints) -1 ) {
+			break;
+		}
+		$start = $coordinates;
+		$end = $waypoints[$idx+1];
+		$distance = distance_between( $start, $end );
+		$leg_output = array(
+			'startLatLong' => $start,
+			'endLatLong' => $end,
+			'distance' => $distance
+		);
+		$calculated_distance += $distance;
+
+		$route_output['legs'][] = $leg_output;
+	}
+
+	$route_output['calculatedDistance'] = (int) $calculated_distance;
+	fwrite($fp,json_encode($route_output));
+	// Except for last route
+	if ( ($index + 1) < count($routes) ) {
+		fwrite($fp,',');
+	}
+}
+
+fwrite($fp,"]}");
+
+
+function distance_between( array $startLatLong, array $endLatLong ) {
+	$lat1 = $startLatLong[0];
+	$lon1 = $startLatLong[1];
+	$lat2 = $endLatLong[0];
+	$lon2 = $endLatLong[1];
+	$theta = $lon1 - $lon2;
+	$dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+	$dist = acos($dist);
+	$dist = rad2deg($dist);
+	return $dist * 60 * 1853.159616;
+}

@@ -1,0 +1,49 @@
+#!/usr/local/bin/php
+<?php
+require_once '../lib/meekrodb.2.3.class.php';
+
+DB::$user = 'root';
+DB::$password = 'root';
+DB::$dbName = 'bixibeats';
+DB::$host = '127.0.0.1'; //defaults to localhost if omitted
+DB::$port = '33306'; // defaults to 3306 if omitted
+DB::$encoding = 'utf8'; // defaults to latin1 if omitted
+
+$output = array(
+	'type' => 'FeatureCollection',
+	"crs" => array(
+		"type" => "name",
+		"properties" => array(
+			"name" => "urn:ogc:def:crs:OGC:1.3:CRS84"
+		)
+	),
+	'features' => array()
+);
+
+$stations = DB::query( "SELECT * FROM stations" );
+
+foreach ( $stations as $station ) {
+	$output['features'][]  = array(
+		'type'       => 'Feature',
+		'properties' => array(
+			'id' => (int) $station['id'],
+			'name'   => $station['nom']
+		),
+		'geometry'   => array(
+			'type' => 'Point',
+			'coordinates' => array(
+				remove_zeros( $station['longitude']),
+				remove_zeros( $station['latitude'])
+			)
+		)
+	);
+}
+
+$json_stations = json_encode($output);
+
+echo "\n\n$json_stations\n\n";
+
+
+function remove_zeros( $string ) {
+	return (float) rtrim( $string, '0');
+}

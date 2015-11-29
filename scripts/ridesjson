@@ -1,0 +1,37 @@
+#!/usr/local/bin/php
+<?php
+require_once '../lib/meekrodb.2.3.class.php';
+
+DB::$user = 'root';
+DB::$password = 'root';
+DB::$dbName = 'bixibeats';
+DB::$host = '127.0.0.1'; //defaults to localhost if omitted
+DB::$port = '33306'; // defaults to 3306 if omitted
+DB::$encoding = 'utf8'; // defaults to latin1 if omitted
+
+$fp = fopen('../data/rides.json','w');
+fwrite($fp,"{'rides':[");
+
+$rides = DB::query( "SELECT * FROM rides order by start_time asc" );
+
+foreach ( $rides as $index => $ride ) {
+	$ride_output = array(
+		'id' => (int) $ride['id'],
+		'routeID' => (int) $ride['route_id'],
+		'startTime' => $ride['start_time'],
+		'duration' => (int) $ride['duration'],
+		'rider' => array(
+			'type' => $ride['member_type'],
+			'gender' => $ride['gender'],
+			'language' => $ride['language']
+		)
+	);
+
+	fwrite($fp,json_encode($ride_output));
+	// Except for last route
+	if ( ($index + 1) < count($rides) ) {
+		fwrite($fp,',');
+	}
+}
+
+fwrite($fp,"]}");
