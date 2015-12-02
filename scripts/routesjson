@@ -10,53 +10,45 @@ DB::$port = '33306'; // defaults to 3306 if omitted
 DB::$encoding = 'utf8'; // defaults to latin1 if omitted
 
 $fp = fopen('../data/routes.json','w');
-fwrite($fp,"{'routes':[");
 
-$routes = DB::query( "SELECT * FROM routes" );
+fwrite($fp,"[");
+
+$routes = DB::query( "SELECT * FROM routes order by id asc" );
 
 foreach ( $routes as $index => $route ) {
-	$route_output = array(
-		'id' => (int) $route['id'],
-		'startStationId' => (int) $route['start_station_id'],
-		'endStationId' => (int) $route['end_station_id'],
-		'distance' => (int) $route['distance'],
-		'expectedDuration' => (int) $route['duration'],
-		'calculatedDistance' => null,
-		'legs' => array()
-	);
+	$route_output = array();
+	$route_distance = (int) $route['distance'];
 
 	$directions = json_decode( $route['geojson'] , true );
 	$waypoints = $directions['geometry']['coordinates'];
-	$calculated_distance = 0;
 
 	foreach ( $waypoints as $idx => $coordinates ) {
 		// Last waypoint, let's break out
 		if ( $idx == count($waypoints) -1 ) {
 			break;
 		}
-		$start = $coordinates;
-		$end = $waypoints[$idx+1];
+		$start = array_reverse($coordinates);
+		$end = array_reverse($waypoints[$idx+1]);
 		$distance = distance_between( $start, $end );
 		$leg_output = array(
-			'startLatLong' => $start,
-			'endLatLong' => $end,
-			'distance' => $distance
+			's' => $start,
+			'e' => $end,
+			'p' => ( $distance / $route_distance )
 		);
-		$calculated_distance += $distance;
 
-		$route_output['legs'][] = $leg_output;
+		$route_output[] = $leg_output;
 	}
 
-	$route_output['calculatedDistance'] = (int) $calculated_distance;
-	fwrite($fp,json_encode($route_output));
+	fwrite($fp, json_encode($route_output));
 	// Except for last route
 	if ( ($index + 1) < count($routes) ) {
 		fwrite($fp,',');
 	}
 }
 
-fwrite($fp,"]}");
+fwrite($fp,"]");
 
+echo "Routes JSON generated.\n";
 
 function distance_between( array $startLatLong, array $endLatLong ) {
 	$lat1 = $startLatLong[0];

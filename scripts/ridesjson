@@ -10,21 +10,26 @@ DB::$port = '33306'; // defaults to 3306 if omitted
 DB::$encoding = 'utf8'; // defaults to latin1 if omitted
 
 $fp = fopen('../data/rides.json','w');
-fwrite($fp,"{'rides':[");
+fwrite($fp,"[");
 
-$rides = DB::query( "SELECT * FROM rides order by start_time asc" );
+$rides = DB::query( "
+SELECT
+id,
+timestampdiff(second,'2015-08-06 04:00',start_time) as start,
+route_id,
+(duration * 60) as duration,
+lcase(concat( gender, language )) as member_type
+ FROM rides order by start_time asc
+" );
 
 foreach ( $rides as $index => $ride ) {
+	if (empty($ride['member_type'])) $ride['member_type'] ='g';
 	$ride_output = array(
 		'id' => (int) $ride['id'],
-		'routeID' => (int) $ride['route_id'],
-		'startTime' => $ride['start_time'],
+		'route' => (int) $ride['route_id'],
+		'start' => (int) $ride['start'],
 		'duration' => (int) $ride['duration'],
-		'rider' => array(
-			'type' => $ride['member_type'],
-			'gender' => $ride['gender'],
-			'language' => $ride['language']
-		)
+		'type' => $ride['member_type'],
 	);
 
 	fwrite($fp,json_encode($ride_output));
@@ -34,4 +39,6 @@ foreach ( $rides as $index => $ride ) {
 	}
 }
 
-fwrite($fp,"]}");
+fwrite($fp,"]");
+
+echo "Rides JSON generated.\n";
