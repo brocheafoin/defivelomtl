@@ -1,0 +1,53 @@
+#!/usr/local/bin/php
+<?php
+require_once '../lib/meekrodb.2.3.class.php';
+
+DB::$user = 'root';
+DB::$password = 'root';
+DB::$dbName = 'bixibeats';
+DB::$host = '127.0.0.1'; //defaults to localhost if omitted
+DB::$port = '33306'; // defaults to 3306 if omitted
+DB::$encoding = 'utf8'; // defaults to latin1 if omitted
+
+$routes = DB::query( "SELECT * FROM routes order by id asc" );
+
+foreach ( $routes as $index => $route ) {
+	$route_output = array();
+	$route_distance = (int) $route['distance'];
+
+	$directions = json_decode( $route['geojson'] , true );
+	$waypoints = $directions['geometry']['coordinates'];
+
+	foreach ( $waypoints as $idx => $coordinates ) {
+		// Add point to path
+		$current = array_reverse($coordinates);
+		$route_output[] = $current;
+		// Last waypoint, annd and break out
+		if ( $idx == count($waypoints) -1 ) {
+			break;
+		}
+		// Add distance to next point as a proportion to whole route
+		$next = array_reverse($waypoints[$idx+1]);
+		$distance = distance_between( $current, $next );
+		$route_output[] = $distance / $route_distance ;
+	}
+
+	$fp = fopen('../data/routes/' . $route['id'] . '.json','w');
+	fwrite($fp, json_encode($route_output));
+	fclose($fp);
+
+}
+
+echo "Routes JSON generated.\n";
+
+function distance_between( array $startLatLong, array $endLatLong ) {
+	$lat1 = $startLatLong[0];
+	$lon1 = $startLatLong[1];
+	$lat2 = $endLatLong[0];
+	$lon2 = $endLatLong[1];
+	$theta = $lon1 - $lon2;
+	$dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+	$dist = acos($dist);
+	$dist = rad2deg($dist);
+	return $dist * 60 * 1853.159616;
+}

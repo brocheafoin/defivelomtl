@@ -2,7 +2,7 @@
 <html>
 <head lang="en">
     <meta charset="UTF-8">
-    <title>Test Défi Vélo Montréal</title>
+    <title>Bixi Bits - Une journée dans la vie de Bixi</title>
     <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.18.0/TweenMax.min.js"></script>
@@ -72,7 +72,7 @@
 BIXIBEATS = {
     mbToken : 'pk.eyJ1IjoiYnJvY2hlYWZvaW4iLCJhIjoiY2loaWljbjNqMDR5MXRoajd3dmpmYmFrbiJ9.tbocSVZpED7Bu18y3jzB3g',
     mbStyle : 'wells-aud.c3ab9cb0',
-    timeScale : 60,
+    timeScale : 300,
     riderTypes : {
         ff : '#FF674A',
         fe : '#62BDFF',
@@ -102,73 +102,84 @@ $(document).ready( function () {
             function( routesXHR, ridesXHR ) {
                 var routes = routesXHR[0];
                 var rides = ridesXHR[0];
-
                 var tl = new TimelineLite({
+                    autoRemoveChildren: false,
                     onStart: function() {
                         $('#timer').show();
                     }
                 });
 
-                for ( i = 0; i < 5000; i++ ) {
-                    var ride = rides[i];
-                    var route = routes[ride.route-1];
-                    var marker = L.circleMarker( route[0].s, {
-                        radius : 2.5,
-                        stroke : false,
-                        clickable : false,
-                        fillColor : BIXIBEATS.riderTypes[ride.type],
-                        fillOpacity : 0
-                    } );
-                    var rideLine = new TimelineLite({
-                        callbackScope: marker,
-                        onStart: function() {
-                            this.addTo( BIXIBEATS.map );
-                        },
-                        onComplete: function() {
-                            BIXIBEATS.map.removeLayer( this );
+                var nextRide = 0;
+                for ( var s = 0; s <  3600 * 24; s += 900 ) {
+                    var hourLine = new TimelineLite();
+                    var nextHour = s + 900;
+                    for ( var i = nextRide; i < rides.length; i++ ) {
+                        var ride = rides[i];
+                        // In next hour
+                        if ( ride.start > nextHour ) {
+                            nextRide = i;
+                            break;
                         }
-                    });
-                    rideLine.add(TweenLite.to(
-                                    { opacity: 0 },
-                                    90,
-                                    {
-                                       opacity: BIXIBEATS.opacity,
-                                        callbackScope: marker,
-                                        onUpdateParams: [ "{self}"],
-                                        onUpdate: function( tweenObj ) {
-                                            this.setStyle( { fillOpacity: tweenObj.target.opacity } );
-                                        }
-                                    }
-                            ));
-                    route.forEach( function( leg ) {
+                        var route = routes[ride.route-1];
+                        var marker = L.circleMarker( route[0].s, {
+                            radius : 2.5,
+                            stroke : false,
+                            clickable : false,
+                            fillColor : BIXIBEATS.riderTypes[ride.type],
+                            fillOpacity : 0
+                        } );
+                        var rideLine = new TimelineLite({
+                            callbackScope: marker,
+                            onStart: function() {
+                                this.addTo( BIXIBEATS.map );
+                            },
+                            onComplete: function() {
+                                BIXIBEATS.map.removeLayer( this );
+                            }
+                        });
                         rideLine.add(TweenLite.to(
-                                { lat: leg.s[0], lon: leg.s[1] },
-                                ride.duration * leg.p,
+                                { opacity: 0 },
+                                90,
                                 {
-                                    lat: leg.e[0],
-                                    lon: leg.e[1],
-                                    ease: Linear.easeNone,
+                                    opacity: BIXIBEATS.opacity,
                                     callbackScope: marker,
                                     onUpdateParams: [ "{self}"],
                                     onUpdate: function( tweenObj ) {
-                                        this.setLatLng( [ tweenObj.target.lat, tweenObj.target.lon ]);
+                                        this.setStyle( { fillOpacity: tweenObj.target.opacity } );
                                     }
                                 }
-                        ))
-                    })
-                    rideLine.add(TweenLite.to(
-                            { opacity: BIXIBEATS.opacity },
-                            90,
-                            {
-                                opacity: 0,
-                                callbackScope: marker,
-                                onUpdateParams: [ "{self}"],
-                                onUpdate: function( tweenObj ) {
-                                    this.setStyle( { fillOpacity: tweenObj.target.opacity } );
+                        ));
+                        route.forEach( function( leg ) {
+                            rideLine.add(TweenLite.to(
+                                    { lat: leg.s[0], lon: leg.s[1] },
+                                    ride.duration * leg.p,
+                                    {
+                                        lat: leg.e[0],
+                                        lon: leg.e[1],
+                                        ease: Linear.easeNone,
+                                        callbackScope: marker,
+                                        onUpdateParams: [ "{self}"],
+                                        onUpdate: function( tweenObj ) {
+                                            this.setLatLng( [ tweenObj.target.lat, tweenObj.target.lon ]);
+                                        }
+                                    }
+                            ))
+                        });
+                        rideLine.add(TweenLite.to(
+                                { opacity: BIXIBEATS.opacity },
+                                90,
+                                {
+                                    opacity: 0,
+                                    callbackScope: marker,
+                                    onUpdateParams: [ "{self}"],
+                                    onUpdate: function( tweenObj ) {
+                                        this.setStyle( { fillOpacity: tweenObj.target.opacity } );
+                                    }
                                 }
-                            }
-                    ));
-                    tl.add( rideLine, ride.start );
+                        ));
+                        hourLine.add( rideLine, ride.start - s );
+                    }
+                    tl.add( hourLine, s );
                 }
 
                 var timer = TweenMax.to( { minutes: -0.5 }, 3600  , {
